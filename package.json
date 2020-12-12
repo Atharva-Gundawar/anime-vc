@@ -14,12 +14,17 @@
     "@tensorflow/tfjs": "^1.7.0",
     "@tensorflow/tfjs-converter": "^1.7.0",
     "@tensorflow/tfjs-core": "^1.7.0",
+    "ejs": "^3.1.5",
+    "express": "^4.17.1",
     "face-api.js": "^0.22.1",
-    "paper": "file:third_party/paper",
+    "nodemon": "^2.0.6",
+    "paper": "0.12.4",
+    "socket.io": "^3.0.4",
     "stats.js": "^0.17.0"
   },
   "scripts": {
-    "watch": "cross-env NODE_ENV=development parcel index.html --no-hmr --open ",
+    "start": "nodemon server.js",
+    "watch": "cross-env NODE_ENV=development parcel index.html --no-hmr --open --no-source-maps ",
     "build": "cross-env NODE_ENV=production parcel build index.html --public-url ./",
     "build-camera": "cross-env NODE_ENV=production parcel build camera.html --public-url ./",
     "lint": "eslint .",
@@ -40,7 +45,7 @@
     "eslint": "^4.19.1",
     "eslint-config-google": "^0.9.1",
     "parcel-bundler": "~1.12.4",
-    "yalc": "~1.0.0-pre.27"
+    "yalc": "^1.0.0-pre.48"
   },
   "eslintConfig": {
     "extends": "google",

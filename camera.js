@@ -37,15 +37,15 @@ import * as tomNookSVG from './resources/illustration/tom-nook.svg';
 
 // Camera stream video element
 let video;
-let videoWidth = 300;
-let videoHeight = 300;
+let videoWidth = 400;
+let videoHeight = 400;
 
 // Canvas
 let faceDetection = null;
 let illustration = null;
 let canvasScope;
-let canvasWidth = 800;
-let canvasHeight = 800;
+let canvasWidth = 400;
+let canvasHeight = 400;
 
 // ML models
 let facemesh;
@@ -64,6 +64,81 @@ const avatarSvgs = {
   'blathers': blathersSVG.default,
   'tom-nook': tomNookSVG.default,
 };
+
+
+
+//peerjs
+
+var peer = new Peer(undefined, {
+  host: 'localhost',
+  port: '3000'
+});
+var con = null;
+var id = null;
+var myId;
+
+peer.on('open', function(id) {
+  console.log('My peer ID is: ' + id);
+  myId = id;
+  myIdSpan.innerHTML = myId;
+});
+
+var myIdSpan = document.getElementById("myId");
+var sub = document.getElementById("peerSub");
+var Send = document.getElementById("send");
+var peerText = document.getElementById("peerId");
+
+sub.addEventListener("click",()=>{
+
+  var peerId = peerText.value;
+  id =peerId;
+  if(id!=null){
+    con = peer.connect(id);
+    if(con!=null){
+      console.log("connected to" ,id);
+      
+    }
+  }
+  
+
+
+});
+
+
+// Send.addEventListener("click",()=>{
+//   if(con){
+//     console.log("send")
+//     SendMessage();
+//   }
+// });
+
+  
+
+
+peer.on('connection', function(conn) 
+{ 
+
+    console.log('peer connected');
+    con = conn;
+    conn.on('open', function() {
+        console.log('conn open');
+        
+    });
+   
+});
+
+
+
+// function SendMessage()
+// {
+//     con.send('Hello!');
+// };
+
+
+
+
+
+
 
 /**
  * Loads a the camera to be used in the demo
@@ -150,21 +225,49 @@ function setupFPS() {
  * Feeds an image to posenet to estimate poses - this is where the magic
  * happens. This function loops with a requestAnimationFrame method.
  */
-function detectPoseInRealTime(video) {
-  const canvas = document.getElementById('output');
-  const keypointCanvas = document.getElementById('keypoints');
-  const videoCtx = canvas.getContext('2d');
-  const keypointCtx = keypointCanvas.getContext('2d');
 
+function drawPoseInRealTime(dataPoints){
+  // console.log(dataPoints);
+  
+  if (dataPoints[0].length >= 1 && illustration) {
+    // console.log(illustration);
+    Skeleton.flipPose(dataPoints[0][0]);
+    // console.log(dataPoints);
+    
+
+    if (dataPoints[1] && dataPoints[1].length > 0) {
+      let face = Skeleton.toFaceFrame(dataPoints[1][0]);
+      illustration.updateSkeleton(dataPoints[0][0], face);
+    } else {
+      illustration.updateSkeleton(dataPoints[0][0], null);
+    }
+    illustration.draw(canvasScope, canvasWidth, canvasHeight);
+
+    if (guiState.debug.showIllustrationDebug) {
+      illustration.debugDraw(canvasScope);
+    }
+  }
+
+}
+
+
+
+
+function detectPoseInRealTime(video) {
+
+  const canvas = document.getElementById('output');
+  const videoCtx = canvas.getContext('2d');
+  
   canvas.width = videoWidth;
   canvas.height = videoHeight;
-  keypointCanvas.width = videoWidth;
-  keypointCanvas.height = videoHeight;
+  console.log(videoHeight,videoWidth);
 
   async function poseDetectionFrame() {
-    // Begin monitoring code for frames per second
-    stats.begin();
 
+    
+    // Begin monitoring code for frames per second
+    // stats.begin();
+  
     let poses = [];
    
     videoCtx.clearRect(0, 0, videoWidth, videoHeight);
@@ -174,9 +277,10 @@ function detectPoseInRealTime(video) {
     videoCtx.translate(-videoWidth, 0);
     videoCtx.drawImage(video, 0, 0, videoWidth, videoHeight);
     videoCtx.restore();
-
+  
     // Creates a tensor from an image
     const input = tf.browser.fromPixels(canvas);
+  
     faceDetection = await facemesh.estimateFaces(input, false, false);
     let all_poses = await posenet.estimatePoses(video, {
       flipHorizontal: true,
@@ -185,56 +289,42 @@ function detectPoseInRealTime(video) {
       scoreThreshold: minPartConfidence,
       nmsRadius: nmsRadius
     });
-
+  
     poses = poses.concat(all_poses);
+    let dataPoints = [poses,faceDetection];
     input.dispose();
-
-    keypointCtx.clearRect(0, 0, videoWidth, videoHeight);
-    if (guiState.debug.showDetectionDebug) {
-      poses.forEach(({score, keypoints}) => {
-      if (score >= minPoseConfidence) {
-          drawKeypoints(keypoints, minPartConfidence, keypointCtx);
-          drawSkeleton(keypoints, minPartConfidence, keypointCtx);
-        }
-      });
-      faceDetection.forEach(face => {
-        Object.values(facePartName2Index).forEach(index => {
-            let p = face.scaledMesh[index];
-            drawPoint(keypointCtx, p[1], p[0], 2, 'red');
-        });
-      });
-    }
-
+  
+  
+    // return dataPoints
     canvasScope.project.clear();
+  
+    if(con!=null){
+      con.send(dataPoints);
+    }
+    
+    
+  
+    requestAnimationFrame(poseDetectionFrame);
 
-    if (poses.length >= 1 && illustration) {
-      Skeleton.flipPose(poses[0]);
-
-      if (faceDetection && faceDetection.length > 0) {
-        let face = Skeleton.toFaceFrame(faceDetection[0]);
-        illustration.updateSkeleton(poses[0], face);
-      } else {
-        illustration.updateSkeleton(poses[0], null);
-      }
-      illustration.draw(canvasScope, videoWidth, videoHeight);
-
-      if (guiState.debug.showIllustrationDebug) {
-        illustration.debugDraw(canvasScope);
-      }
+    if(con!=null){
+      con.on('data', function(data) {
+        
+        if(data){
+          drawPoseInRealTime(data);
+        }
+          
+      });
     }
 
-    canvasScope.project.activeLayer.scale(
-      canvasWidth / videoWidth, 
-      canvasHeight / videoHeight, 
-      new canvasScope.Point(0, 0));
 
-    // End monitoring code for frames per second
-    stats.end();
 
-    requestAnimationFrame(poseDetectionFrame);
+
+
   }
 
   poseDetectionFrame();
+  
+
 }
 
 function setupCanvas() {
@@ -246,11 +336,18 @@ function setupCanvas() {
     videoHeight *= 0.7;
   }  
 
+
+
   canvasScope = paper.default;
-  let canvas = document.querySelector('.illustration-canvas');;
+  let canvas = document.querySelector('.illustration-canvas');
   canvas.width = canvasWidth;
   canvas.height = canvasHeight;
   canvasScope.setup(canvas);
+
+
+
+
+ 
 }
 
 /**
@@ -288,7 +385,7 @@ export async function bindPage() {
   }
 
   setupGui([], posenet);
-  setupFPS();
+  // setupFPS();
   
   toggleLoadingUI(false);
   detectPoseInRealTime(video, posenet);
@@ -303,6 +400,7 @@ async function parseSVG(target) {
   let skeleton = new Skeleton(svgScope);
   illustration = new PoseIllustration(canvasScope);
   illustration.bindSkeleton(skeleton, svgScope);
+ 
 }
     
 bindPage();
