@@ -70,7 +70,7 @@ const avatarSvgs = {
 //peerjs
 
 var peer = new Peer(undefined, {
-  host: 'localhost',
+  host: 'login.davidvelho.tech',
   port: '3000'
 });
 var con = null;
@@ -226,7 +226,7 @@ function setupFPS() {
  * happens. This function loops with a requestAnimationFrame method.
  */
 
-function drawPoseInRealTime(dataPoints){
+async function drawPoseInRealTime(dataPoints){
   // console.log(dataPoints);
   
   if (dataPoints[0].length >= 1 && illustration) {
@@ -253,7 +253,7 @@ function drawPoseInRealTime(dataPoints){
 
 
 
-function detectPoseInRealTime(video) {
+async function detectPoseInRealTime(video) {
 
   const canvas = document.getElementById('output');
   const videoCtx = canvas.getContext('2d');
@@ -298,26 +298,28 @@ function detectPoseInRealTime(video) {
     // return dataPoints
     canvasScope.project.clear();
   
-    if(con!=null){
-      con.send(dataPoints);
-    }
     
+      if(con!=null){
+        con.send(dataPoints);
+        console.log("sent");
+      }
+      
     
-  
-    requestAnimationFrame(poseDetectionFrame);
 
+    
     if(con!=null){
       con.on('data', function(data) {
         
         if(data){
-          drawPoseInRealTime(data);
+         drawPoseInRealTime(data);
         }
           
       });
     }
 
-
-
+    
+  
+    requestAnimationFrame(poseDetectionFrame);
 
 
   }
